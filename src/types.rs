@@ -18,12 +18,16 @@ impl RawTransaction {
             "deposit" => Ok(Transaction::Deposit(DepositRecord {
                 transaction_id: self.tx,
                 client_id: self.client,
-                amount: self.parse_amount().ok_or_else(|| "Amount is required for deposit".to_string())?,
+                amount: self
+                    .parse_amount()
+                    .ok_or_else(|| "Amount is required for deposit".to_string())?,
             })),
             "withdrawal" => Ok(Transaction::Withdrawal {
                 transaction_id: self.tx,
                 client_id: self.client,
-                amount: self.parse_amount().ok_or_else(|| "Amount is required for withdrawal".to_string())?,
+                amount: self
+                    .parse_amount()
+                    .ok_or_else(|| "Amount is required for withdrawal".to_string())?,
             }),
             "dispute" => Ok(Transaction::Dispute {
                 transaction_id: self.tx,
@@ -73,9 +77,6 @@ pub struct DepositRecord {
     pub amount: i64,
 }
 
-
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,7 +90,9 @@ mod tests {
         let mut transactions = Vec::new();
         for result in rdr.deserialize() {
             let raw: RawTransaction = result.expect("Failed to deserialize CSV record");
-            let tx = raw.into_transaction().expect("Failed to convert to Transaction");
+            let tx = raw
+                .into_transaction()
+                .expect("Failed to convert to Transaction");
             transactions.push(tx);
         }
         transactions
@@ -116,7 +119,11 @@ mod tests {
         let txs = parse_csv(csv);
         assert_eq!(txs.len(), 1);
         match &txs[0] {
-            Transaction::Withdrawal { transaction_id, client_id, amount } => {
+            Transaction::Withdrawal {
+                transaction_id,
+                client_id,
+                amount,
+            } => {
                 assert_eq!(*transaction_id, 2001);
                 assert_eq!(*client_id, 2);
                 assert_eq!(*amount, 500_000);
@@ -131,7 +138,10 @@ mod tests {
         let txs = parse_csv(csv);
         assert_eq!(txs.len(), 1);
         match &txs[0] {
-            Transaction::Dispute { transaction_id, client_id } => {
+            Transaction::Dispute {
+                transaction_id,
+                client_id,
+            } => {
                 assert_eq!(*transaction_id, 1001);
                 assert_eq!(*client_id, 1);
             }
@@ -145,7 +155,10 @@ mod tests {
         let txs = parse_csv(csv);
         assert_eq!(txs.len(), 1);
         match &txs[0] {
-            Transaction::Resolve { transaction_id, client_id } => {
+            Transaction::Resolve {
+                transaction_id,
+                client_id,
+            } => {
                 assert_eq!(*transaction_id, 1001);
                 assert_eq!(*client_id, 1);
             }
@@ -159,7 +172,10 @@ mod tests {
         let txs = parse_csv(csv);
         assert_eq!(txs.len(), 1);
         match &txs[0] {
-            Transaction::Chargeback { transaction_id, client_id } => {
+            Transaction::Chargeback {
+                transaction_id,
+                client_id,
+            } => {
                 assert_eq!(*transaction_id, 1001);
                 assert_eq!(*client_id, 1);
             }
@@ -252,7 +268,8 @@ mod tests {
 
     #[test]
     fn test_multiple_transactions() {
-        let csv = "type,client,tx,amount\ndeposit,1,1001,100\nwithdrawal,1,1002,50.5\ndispute,1,1001,0\n";
+        let csv =
+            "type,client,tx,amount\ndeposit,1,1001,100\nwithdrawal,1,1002,50.5\ndispute,1,1001,0\n";
         let txs = parse_csv(csv);
         assert_eq!(txs.len(), 3);
 
@@ -276,7 +293,9 @@ mod tests {
 
         for result in rdr.deserialize() {
             let raw: RawTransaction = result.expect("Failed to deserialize");
-            let err = raw.into_transaction().expect_err("Expected error for unknown type");
+            let err = raw
+                .into_transaction()
+                .expect_err("Expected error for unknown type");
             assert!(err.contains("Unknown transaction type"));
         }
     }
@@ -287,7 +306,10 @@ mod tests {
         let txs = parse_csv(csv);
         assert_eq!(txs.len(), 1);
         match &txs[0] {
-            Transaction::Dispute { transaction_id, client_id } => {
+            Transaction::Dispute {
+                transaction_id,
+                client_id,
+            } => {
                 assert_eq!(*transaction_id, 1001);
                 assert_eq!(*client_id, 1);
             }
@@ -301,7 +323,10 @@ mod tests {
         let txs = parse_csv(csv);
         assert_eq!(txs.len(), 1);
         match &txs[0] {
-            Transaction::Resolve { transaction_id, client_id } => {
+            Transaction::Resolve {
+                transaction_id,
+                client_id,
+            } => {
                 assert_eq!(*transaction_id, 2001);
                 assert_eq!(*client_id, 2);
             }
@@ -315,7 +340,10 @@ mod tests {
         let txs = parse_csv(csv);
         assert_eq!(txs.len(), 1);
         match &txs[0] {
-            Transaction::Chargeback { transaction_id, client_id } => {
+            Transaction::Chargeback {
+                transaction_id,
+                client_id,
+            } => {
                 assert_eq!(*transaction_id, 3001);
                 assert_eq!(*client_id, 3);
             }
@@ -328,7 +356,10 @@ mod tests {
         let txs = parse_csv(csv);
         assert_eq!(txs.len(), 1);
         match &txs[0] {
-            Transaction::Chargeback { transaction_id, client_id } => {
+            Transaction::Chargeback {
+                transaction_id,
+                client_id,
+            } => {
                 assert_eq!(*transaction_id, 3001);
                 assert_eq!(*client_id, 3);
             }
