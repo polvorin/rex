@@ -7,7 +7,7 @@ pub type ClientId = u16;
 // For example, a balance of $1.2324 would be stored as 12324.
 pub type Amount = i64;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RawTransaction {
     #[serde(rename = "type")]
     pub tx_type: String,
@@ -54,7 +54,7 @@ impl RawTransaction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Transaction {
     Deposit {
         transaction_id: TransactionId,
