@@ -65,3 +65,21 @@ While we process transactions in a streamming way as readed from stdin, in order
 to process disputes/chargebacks we also need to keep information about past _Deposits_ around.
 
 
+# Quick Profiling
+
+A quick profiling using [samply](https://github.com/mstange/samply) confirms the intuition regarding the performance characteristic of the engine.
+
+
+* Actual transaction processing is fast, the engines themselves are underutilized waiting for more data to be feed.  
+* syncronization cost is high
+
+!(flamegraph of main loop thread)[main_loop_thread.png]
+
+
+* Inside each engine' thread,  engine is blocked waiting for input rather than saturate the CPU
+
+
+!(flamegraph of engine loop thread)[engine_thread.png]
+
+
+The single, simplest thing to improve performance of this toy project would be to send transaction in batches to the engines instead of one-by-one.
