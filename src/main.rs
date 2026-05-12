@@ -50,10 +50,10 @@ fn main() {
     // used by the engine.  But it simplifies the code, and allow the engine to work over cleaner types.
     for row in rdr.deserialize() {
         let raw: RawTransaction = row.expect("Failed to deserialize CSV record");
-        let tx = raw
-            .into_transaction()
-            .expect("Failed to parse transaction type");
-        route_transaction(tx, &senders).expect("Failed to route transaction");
+        match raw.into_transaction() {
+            Ok(tx) => route_transaction(tx, &senders).expect("Failed to route transaction"),
+            Err(err) => log::warn!("Skipping invalid transaction: {}", err),
+        }
     }
 
     drop(senders);
