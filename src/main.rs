@@ -1,6 +1,7 @@
+use itertools::Itertools;
 use std::env;
 use std::sync::mpsc::{self, SyncSender};
-use std::thread;
+use std::thread; // for kmerge
 
 mod engine;
 mod types;
@@ -61,20 +62,16 @@ fn main() {
         .has_headers(true)
         .from_writer(std::io::stdout());
 
-    for handle in handles {
-        let engine_report = handle
-            .join()
-            .expect("Engine thread panicked while generating report");
-
-        for record in engine_report.iter() {
-            writer
-                .serialize(record)
-                .expect("Failed to write CSV record");
-        }
+    // Merge the sorted reports from each engine so we generate it ordered by client_id
+    let sub_reports = handles.into_iter().map(|h| {
+        h.join()
+            .expect("Engine thread panicked while generating report")
+    });
+    for record in sub_reports.kmerge_by(|a, b| a.client < b.client) {
+        writer
+            .serialize(record)
+            .expect("Failed to write CSV record");
     }
-
-
-
 }
 
 // Routes a transaction to the appropriate engine. Transactions only ever touch a single
@@ -92,7 +89,10 @@ fn route_transaction(
     };
 
     let engine_index = (client_id as usize) % senders.len();
-    senders[engine_index]
-        .send(transaction)
-        .map_err(|err| format!("Failed to send transaction to engine {}: {}", engine_index, err))
+    senders[engine_index].send(transaction).map_err(|err| {
+        format!(
+            "Failed to send transaction to engine {}: {}",
+            engine_index, err
+        )
+    })
 }

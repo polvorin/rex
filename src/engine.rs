@@ -50,11 +50,23 @@ impl Balance {
 
 #[derive(Debug, Serialize)]
 pub struct BalanceReportRecord {
-    client: u16,
+    pub client: u16,
+    #[serde(serialize_with = "amount_as_decimal_string")]
     available: f64,
+    #[serde(serialize_with = "amount_as_decimal_string")]
     held: f64,
+    #[serde(serialize_with = "amount_as_decimal_string")]
     total: f64,
     locked: bool,
+}
+
+fn amount_as_decimal_string<S>(amount: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    // Serialize the amount as a string with 4 decimal places to avoid floating point issues in CSV output.
+    let s = format!("{}", amount);
+    serializer.serialize_str(&s)
 }
 
 pub struct Engine {
@@ -69,9 +81,16 @@ impl Engine {
     }
 
     pub fn report(&self) -> Vec<BalanceReportRecord> {
-        self.balances
+        // Generate a report of all user balances, sorted by client ID.
+        // We could have choosen to keep the balances in a BTreeMap to avoid sorting here,
+        // if report performance was a problem.
+        // Note the user' balances are already held on memory, this allocates in the
+        // same order of magnitude.
+        let mut user_balances: Vec<_> = self.balances.iter().collect();
+        user_balances.sort_by_key(|(k, _)| *k);
+        user_balances
             .iter()
-            .map(|(client_id, balance)| balance.as_report(*client_id))
+            .map(|(client_id, balance)| balance.as_report(**client_id))
             .collect()
     }
 

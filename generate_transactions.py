@@ -2,6 +2,11 @@ import csv
 import random
 import sys
 
+# Generate a large number of transactions to get roudh idea of the performance 
+# don't pretend to be realistic on the tx distribution, just generate in a way
+# it is easy to verify the correctness of the final balances.
+
+
 random.seed(42)
 num_users = 20000
 user_ids = random.sample(range(1, 65536), num_users)
@@ -22,7 +27,7 @@ for round_num in range(50):
 # withdrawal rounds, interleave users
 for round_num in range(5):
     for client in user_ids:
-        amount = client * 0.1
+        amount = client * 0.0001
         writer.writerow(['withdrawal', client, tx_id, f'{amount:.4f}'])
         tx_id += 1
 # final disputes/resolutions per user
