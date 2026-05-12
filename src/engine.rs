@@ -3,12 +3,18 @@ use serde::Serialize;
 use crate::types::{Amount, ClientId, Transaction, TransactionId};
 use std::collections::HashMap;
 
-// Balances are stored as i64, and represented as 1/10000.
-// For example, a balance of $1.2324 would be stored as 12324.
+// A user balance.  Holds the total balance, and the disputed and undisputed deposits.
+// held amount and available balance are computed based on total balance and disputed deposits.
+// this way we have a single source of truth for the available balance,
+// and avoid having to update multiple fields that could lead to inconsistencies if not done carefully.
 struct Balance {
-    total_balance: i64,
+    total_balance: Amount,
     is_locked: bool,
+    // Assume there is few disputed deposits per account, so a vector is convenient here.
     disputed_deposits: Vec<(TransactionId, Amount)>,
+    // Required for being able to process disputes. A more complete implementation would
+    // need more information about the transactions, but for the sake of this exercise
+    // we only need to know the amount of each deposit.
     undisputed_deposits: HashMap<TransactionId, Amount>,
 }
 
@@ -31,6 +37,7 @@ impl Balance {
     }
 
     fn as_report(&self, client_id: ClientId) -> BalanceReportRecord {
+        // Note we compute the held funds twice here, but left for simplicity.
         BalanceReportRecord {
             client: client_id,
             available: self.available_funds() as f64 / 10000.0,
@@ -133,6 +140,8 @@ impl Engine {
         balance.undisputed_deposits.insert(transaction_id, amount);
     }
 
+    // Call the function `f` with the balance for `client_id` if the account is not locked
+    // otherwise log a warning and skip processing.
     fn with_unlocked_balance<F>(&mut self, client_id: ClientId, transaction_id: TransactionId, f: F)
     where
         F: Fn(&mut Balance) -> Result<(), String>,

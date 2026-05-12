@@ -2,6 +2,9 @@ use serde::Deserialize;
 
 pub type TransactionId = u32;
 pub type ClientId = u16;
+
+// Balances are stored as i64, and represented as 1/10000.
+// For example, a balance of $1.2324 would be stored as 12324.
 pub type Amount = i64;
 
 #[derive(Debug, Deserialize)]
