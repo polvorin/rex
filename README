@@ -1,0 +1,26 @@
+# REX - A Toy Payment Engine
+
+Process transactions in a streamming way, as readed from stdin.
+	Note:  at least Deposit transactions will need to be keeped around to process disputes/chargebacks
+
+Store balance' amounts as integers,  we are interested in 4 positions past the decimal point, so multiply by 10000 and round. 
+12.3456  would be stored as 123456. Easier to handle, avoid precission errors.
+
+Given the little processing we need to do per transaction, performance will _very_ likely be dictated by input/output
+(how fast we can read and parse the data, how fast we can serialize and write).
+
+
+Assumptions:
+
+* The toy engine only accept disputes for Deposit transactions (not withdrawls).
+That's what I interpret from the wording on the requirements:
+
+>The transaction shouldn't be reversed yet but the associated funds should be held. This means hat the clients available funds should decrease by the amount disputed, their held funds should increase by the amount disputed, while their total funds should remain the same." 
+
+That makes sense for disputing a deposit (a portion of a user' funds are locked until the dispute is resolved),  but for withdrawals that would mean the available funds will increase, making it possible to withdraw the funds again  *while the dispute wasn't resolved yet*.
+ 
+* Once an account is locked, all further transactions are rejected
+> If a chargeback occurs the client's account should be immediately frozen."
+
+I assummed this mean that no deposit, withdrawl, dispute, resolution nor chargeback would be acepted for the account.  
+
