@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::types::{DepositRecord, Transaction};
+use crate::types::{Amount, ClientId, Transaction, TransactionId};
 use std::collections::HashMap;
 
 // Balances are stored as i64, and represented as 1/10000.
@@ -8,8 +8,8 @@ use std::collections::HashMap;
 struct Balance {
     total_balance: i64,
     is_locked: bool,
-    disputed_deposits: Vec<DepositRecord>,
-    undisputed_deposits: HashMap<u32, DepositRecord>,
+    disputed_deposits: Vec<(TransactionId, Amount)>,
+    undisputed_deposits: HashMap<TransactionId, Amount>,
 }
 
 impl Balance {
@@ -21,16 +21,16 @@ impl Balance {
             undisputed_deposits: HashMap::new(),
         }
     }
-    fn available_funds(&self) -> i64 {
+    fn available_funds(&self) -> Amount {
         self.total_balance - self.held_funds()
     }
-    fn held_funds(&self) -> i64 {
+    fn held_funds(&self) -> Amount {
         self.disputed_deposits
             .iter()
-            .fold(0, |acc, x| acc + x.amount)
+            .fold(0, |acc, (_tx_id, amount)| acc + *amount)
     }
 
-    fn as_report(&self, client_id: u16) -> BalanceReportRecord {
+    fn as_report(&self, client_id: ClientId) -> BalanceReportRecord {
         BalanceReportRecord {
             client: client_id,
             available: self.available_funds() as f64 / 10000.0,
@@ -71,8 +71,12 @@ impl Engine {
     pub fn process_transaction(&mut self, transaction: Transaction) -> () {
         // Process the transaction and update accounts and transactions accordingly
         match transaction {
-            Transaction::Deposit(deposit) => {
-                self.process_deposit(deposit);
+            Transaction::Deposit {
+                transaction_id,
+                client_id,
+                amount,
+            } => {
+                self.process_deposit(client_id, transaction_id, amount);
             }
             Transaction::Withdrawal {
                 transaction_id,
@@ -110,26 +114,26 @@ impl Engine {
         }
     }
 
-    fn process_deposit(&mut self, deposit: DepositRecord) {
-        let balance = self
-            .balances
-            .entry(deposit.client_id)
-            .or_insert_with(Balance::new);
+    fn process_deposit(
+        &mut self,
+        client_id: ClientId,
+        transaction_id: TransactionId,
+        amount: Amount,
+    ) {
+        let balance = self.balances.entry(client_id).or_insert_with(Balance::new);
         if balance.is_locked {
             log::warn!(
                 "Tried to process deposit for frozen account {}: {}",
-                deposit.client_id,
-                deposit.transaction_id
+                client_id,
+                transaction_id
             );
             return;
         }
-        balance.total_balance += deposit.amount;
-        balance
-            .undisputed_deposits
-            .insert(deposit.transaction_id, deposit);
+        balance.total_balance += amount;
+        balance.undisputed_deposits.insert(transaction_id, amount);
     }
 
-    fn with_unlocked_balance<F>(&mut self, client_id: u16, transaction_id: u32, f: F)
+    fn with_unlocked_balance<F>(&mut self, client_id: ClientId, transaction_id: TransactionId, f: F)
     where
         F: Fn(&mut Balance) -> Result<(), String>,
     {
@@ -175,7 +179,7 @@ fn process_withdrawal(balance: &mut Balance, amount: i64) -> Result<(), String> 
 fn process_dispute(balance: &mut Balance, transaction_id: u32) -> Result<(), String> {
     match balance.undisputed_deposits.remove(&transaction_id) {
         Some(deposit) => {
-            balance.disputed_deposits.push(deposit);
+            balance.disputed_deposits.push((transaction_id, deposit));
             Ok(())
         }
         None => Err(format!(
@@ -189,13 +193,11 @@ fn process_resolve(balance: &mut Balance, transaction_id: u32) -> Result<(), Str
     match balance
         .disputed_deposits
         .iter()
-        .position(|d| d.transaction_id == transaction_id)
+        .position(|&(disputed_transaction_id, _)| disputed_transaction_id == transaction_id)
     {
         Some(pos) => {
-            let deposit = balance.disputed_deposits.swap_remove(pos);
-            balance
-                .undisputed_deposits
-                .insert(deposit.transaction_id, deposit);
+            let (_, amount) = balance.disputed_deposits.swap_remove(pos);
+            balance.undisputed_deposits.insert(transaction_id, amount);
             Ok(())
         }
         None => Err(format!(
@@ -209,11 +211,11 @@ fn process_chargeback(balance: &mut Balance, transaction_id: u32) -> Result<(), 
     match balance
         .disputed_deposits
         .iter()
-        .position(|d| d.transaction_id == transaction_id)
+        .position(|&(disputed_transaction_id, _)| disputed_transaction_id == transaction_id)
     {
         Some(pos) => {
-            let deposit = balance.disputed_deposits.swap_remove(pos);
-            balance.total_balance -= deposit.amount;
+            let (_, amount) = balance.disputed_deposits.swap_remove(pos);
+            balance.total_balance -= amount;
             balance.is_locked = true;
             Ok(())
         }
@@ -229,11 +231,11 @@ mod tests {
     use super::*;
 
     fn create_deposit(client_id: u16, transaction_id: u32, amount: i64) -> Transaction {
-        Transaction::Deposit(DepositRecord {
+        Transaction::Deposit {
             client_id,
             transaction_id,
             amount,
-        })
+        }
     }
 
     fn create_withdrawal(client_id: u16, transaction_id: u32, amount: i64) -> Transaction {
