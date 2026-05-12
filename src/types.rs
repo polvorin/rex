@@ -8,7 +8,7 @@ pub type ClientId = u16;
 pub type Amount = i64;
 
 // Transactions as read from CSV
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize)]
 pub struct RawTransaction {
     #[serde(rename = "type")]
     pub tx_type: String,
@@ -58,7 +58,7 @@ impl RawTransaction {
 // Internal representation of transactions used by the engine.
 // See https://github.com/BurntSushi/rust-csv/pull/231 for rationale behind this separation.
 // Didn't want to complicate the CSV parsing code in the exercise just for perf reasons.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Transaction {
     Deposit {
         transaction_id: TransactionId,
